@@ -15,8 +15,8 @@ This project bridges LÖVE2D games with MCP-compatible AI assistants, enabling:
 
 ```
 ┌─────────────┐ stdio  ┌─────────────┐  TCP   ┌─────────────┐
-│ MCP Client  │◄──────►│  MCP Server │◄──────►│  LÖVE2D     │
-│ (Inspector) │        │ (TypeScript)│        │  Game (Lua) │
+│  MCP Client │◄──────►│  MCP Server │◄──────►│  LÖVE2D     │
+│   (Pi/Inspector) │        │ (TypeScript)│        │  Game (Lua) │
 └─────────────┘        └─────────────┘        └─────────────┘
 ```
 
@@ -36,7 +36,7 @@ This project bridges LÖVE2D games with MCP-compatible AI assistants, enabling:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/shayarnett/love2d-mcp.git
+git clone https://github.com/mikefreno/love2d-mcp.git
 cd love2d-mcp
 ```
 
@@ -50,6 +50,12 @@ npm install
 npm run build
 ```
 
+4. (Optional) Install globally so the `love2d-mcp` command is available anywhere:
+```bash
+npm link
+```
+This registers `love2d-mcp` as a global command. You can verify with `which love2d-mcp`.
+
 ## Quick Start
 
 ### 1. Start the Example Game
@@ -60,15 +66,32 @@ love game/
 
 You should see a window with 5 bouncing balls. The game starts a TCP server on port 12345.
 
-### 2. Connect with MCP Inspector
+### 2. Connect with an MCP Client
 
-In a new terminal:
+The server communicates over stdio, so it works with any MCP-compatible client.
 
-```bash
-npx @modelcontextprotocol/inspector node build/index.js
+#### Using Pi
+
+If you use [Pi](https://pi.dev), add this entry to your pi MCP config (`~/.pi/agent/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "love2d-mcp": {
+      "command": "love2d-mcp",
+      "directTools": true
+    }
+  }
+}
 ```
 
-This opens the MCP Inspector in your browser where you can interact with the game.
+After installing the server globally (`npm link`), Pi will launch it automatically.
+
+#### Using MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector love2d-mcp
+```
 
 ### 3. Try Some Commands
 
@@ -99,7 +122,9 @@ return count
 
 ## Available MCP Tools
 
-### `list_objects`
+### Observation Tools
+
+#### `list_objects`
 
 Lists all objects in the current game scene.
 
@@ -107,7 +132,7 @@ Lists all objects in the current game scene.
 
 **Returns:** Array of objects with `id`, `type`, `x`, and `y` properties.
 
-### `get_object`
+#### `get_object`
 
 Get detailed information about a specific object.
 
@@ -116,7 +141,55 @@ Get detailed information about a specific object.
 
 **Returns:** Complete object data including all properties.
 
-### `run_lua`
+#### `get_game_state`
+
+Get comprehensive game state including window dimensions, FPS, object count, LÖVE2D version, and pause state.
+
+**Parameters:** None
+
+#### `get_performance_stats`
+
+Get current performance statistics (FPS, object count, delta time, elapsed time).
+
+**Parameters:** None
+
+### Modification Tools
+
+#### `add_object`
+
+Create a new game object with a specified type and properties.
+
+**Parameters:**
+- `type` (string): Object type (e.g., "ball", "player", "wall")
+- `properties` (object, optional): Initial property values
+
+**Returns:** The created object with auto-generated ID.
+
+#### `remove_object`
+
+Remove a game object by its ID.
+
+**Parameters:**
+- `id` (string): Object ID to remove
+
+#### `modify_object`
+
+Modify properties of an existing game object.
+
+**Parameters:**
+- `id` (string): Object ID
+- `properties` (object): Properties to update (e.g., `{x: 400, y: 300}`)
+
+#### `pause_game`
+
+Pause or unpause the game loop.
+
+**Parameters:**
+- `paused` (boolean): `true` to pause, `false` to resume
+
+### Diagnostic Tools
+
+#### `run_lua`
 
 Execute arbitrary Lua code in the game context with access to game objects.
 
@@ -129,6 +202,24 @@ Execute arbitrary Lua code in the game context with access to game objects.
 - `objects`: Table of all game objects
 - `love`: LÖVE2D API
 - Standard Lua functions and libraries
+
+#### `create_debug_text`
+
+Display a text overlay on the game screen for debugging (auto-clears after 10 seconds).
+
+**Parameters:**
+- `text` (string): Text to display
+- `x` (number, optional): X position
+- `y` (number, optional): Y position
+- `color` (object, optional): RGB color `{r, g, b}` (0-1 range)
+
+#### `capture_screenshot`
+
+Capture a screenshot of the current game frame.
+
+**Parameters:** None
+
+**Returns:** File path, filename, and dimensions.
 
 ## Integrating with Your Game
 
@@ -163,7 +254,7 @@ function love.quit()
 end
 ```
 
-3. Start your game and connect via MCP Inspector
+3. Start your game and connect via your preferred MCP client (Pi or Inspector)
 
 ## Development
 
@@ -209,8 +300,9 @@ love2d-mcp/
 - Check port 12345 isn't already in use
 - Look for "MCP Bridge listening" message in game console
 
-### Inspector shows errors
-- Rebuild the TypeScript: `npm run build`
+### MCP client errors
+- Ensure the server is globally installed: `which love2d-mcp`
+- Rebuild the TypeScript: `npm run build` (then `npm link` to update the global install)
 - Check Node.js version: `node --version` (requires 18+)
 
 ## Contributing
@@ -231,4 +323,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [MCP Documentation](https://modelcontextprotocol.io/)
 - [LÖVE2D Documentation](https://love2d.org/wiki/)
-- [Report Issues](https://github.com/shayarnett/love2d-mcp/issues)
+- [Pi — AI Coding Agent](https://pi.dev)
+- [Report Issues](https://github.com/mikefreno/love2d-mcp/issues)

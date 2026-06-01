@@ -4,6 +4,9 @@
   "description": "MCP server for LÖVE2D game development",
   "type": "module",
   "main": "build/index.js",
+  "bin": {
+    "love2d-mcp": "./build/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
@@ -12,6 +15,14 @@
   "keywords": ["mcp", "love2d", "game-development"],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikefreno/love2d-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mikefreno/love2d-mcp/issues"
+  },
+  "homepage": "https://github.com/mikefreno/love2d-mcp",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",
     "zod": "^3.23.8"

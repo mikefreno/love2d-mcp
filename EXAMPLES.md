@@ -352,6 +352,187 @@ end
 return sorted
 ```
 
+## Using Dedicated Tools
+
+### Game State & Performance
+
+Get a comprehensive game snapshot:
+
+```json
+// get_game_state (no parameters)
+// Output:
+{
+  "window": {"width": 800, "height": 600},
+  "fps": 60,
+  "objectCount": 5,
+  "objects": [
+    {"id": "ball_1", "type": "ball", "x": 234.5, "y": 156.2},
+    {"id": "ball_2", "type": "ball", "x": 567.8, "y": 432.1}
+  ],
+  "version": {"major": 11, "minor": 4, "revision": 0},
+  "paused": false
+}
+```
+
+Quick performance check:
+
+```json
+// get_performance_stats (no parameters)
+// Output:
+{
+  "fps": 60,
+  "objectCount": 5,
+  "deltaTime": 0.016,
+  "time": 42.5,
+  "width": 800,
+  "height": 600
+}
+```
+
+### Creating Objects
+
+Add a new ball:
+
+```json
+// add_object
+// Input:
+{
+  "type": "ball",
+  "properties": {
+    "x": 400, "y": 300,
+    "vx": 100, "vy": -50,
+    "radius": 20,
+    "r": 1.0, "g": 0.0, "b": 0.0
+  }
+}
+
+// Output:
+{
+  "object": {
+    "id": "entity_6",
+    "type": "ball",
+    "x": 400, "y": 300,
+    "vx": 100, "vy": -50,
+    "radius": 20,
+    "r": 1.0, "g": 0.0, "b": 0.0
+  },
+  "success": true
+}
+```
+
+### Removing Objects
+
+```json
+// remove_object
+// Input: {"id": "ball_3"}
+// Output:
+{
+  "success": true
+}
+```
+
+### Modifying Objects
+
+Change a ball's color and speed:
+
+```json
+// modify_object
+// Input:
+{
+  "id": "ball_1",
+  "properties": {
+    "r": 1.0, "g": 0.0, "b": 0.0,
+    "vx": 300, "vy": 200
+  }
+}
+
+// Output:
+{
+  "object": {
+    "id": "ball_1",
+    "type": "ball",
+    "x": 234.5, "y": 156.2,
+    "vx": 300, "vy": 200,
+    "radius": 25,
+    "r": 1.0, "g": 0.0, "b": 0.0
+  },
+  "success": true
+}
+```
+
+### Pause/Resume
+
+Pause the game to inspect state safely:
+
+```json
+// pause_game
+// Input: {"paused": true}
+// Output:
+{
+  "success": true,
+  "paused": true
+}
+```
+
+When paused, the game loop skips all logic but continues processing MCP commands, so you can inspect and modify freely.
+
+### Debug Text Overlays
+
+Add visual annotations to the game screen:
+
+```json
+// create_debug_text
+// Input:
+{
+  "text": "Collision point",
+  "x": 400, "y": 300,
+  "color": {"r": 1.0, "g": 1.0, "b": 0.0}
+}
+
+// Output:
+{
+  "success": true
+}
+```
+
+Text overlays auto-clear after 10 seconds.
+
+### Screenshots
+
+```json
+// capture_screenshot (no parameters)
+// Output:
+{
+  "success": true,
+  "file": "/path/to/love2d/save/dir/love2d_mcp_screenshot.png",
+  "filename": "love2d_mcp_screenshot.png",
+  "width": 800,
+  "height": 600
+}
+```
+
+## Debugging Patterns
+
+### The Pause-Inspect-Modify Loop
+
+1. `pause_game(true)` — freeze everything
+2. `get_game_state()` + `get_object("id")` — understand the state
+3. `modify_object("id", {...})` — make targeted changes
+4. `create_debug_text("note", x, y)` — annotate for later reference
+5. `capture_screenshot()` — save visual evidence
+6. `pause_game(false)` — resume and observe
+
+This is the safest way to make complex modifications without race conditions from the game loop.
+
+### Performance Checks
+
+```
+1. get_performance_stats() — check FPS and object count
+2. If FPS is low, check for excessive object creation
+3. list_objects() — see if unexpected objects exist
+4. remove_object("unwanted_id") — clean up
+```
+
 ## Tips
 
 1. **Tables are returned as JSON**: When returning tables, they're automatically JSON-encoded

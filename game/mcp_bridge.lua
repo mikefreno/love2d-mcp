@@ -5,6 +5,12 @@ local mcp_bridge = {}
 local server = nil
 local clients = {}
 local objectGetter = nil
+local objectAdder = nil
+local objectRemover = nil
+local objectModifier = nil
+local pauseSetter = nil
+local debugTextSetter = nil
+local gameStateGetter = nil
 
 -- Initialize TCP server
 function mcp_bridge.init(port)
@@ -18,6 +24,36 @@ end
 -- Set function to get game objects
 function mcp_bridge.setObjectGetter(getter)
     objectGetter = getter
+end
+
+-- Set function to create new game objects
+function mcp_bridge.setObjectAdder(adder)
+    objectAdder = adder
+end
+
+-- Set function to remove game objects
+function mcp_bridge.setObjectRemover(remover)
+    objectRemover = remover
+end
+
+-- Set function to modify game objects directly
+function mcp_bridge.setObjectModifier(modifier)
+    objectModifier = modifier
+end
+
+-- Set function to pause/unpause the game
+function mcp_bridge.setPauseSetter(setter)
+    pauseSetter = setter
+end
+
+-- Set function to display debug text
+function mcp_bridge.setDebugTextSetter(setter)
+    debugTextSetter = setter
+end
+
+-- Set function to get comprehensive game state
+function mcp_bridge.setGameStateGetter(getter)
+    gameStateGetter = getter
 end
 
 -- Handle incoming connections and commands
@@ -65,6 +101,22 @@ function mcp_bridge.handleCommand(line)
         return mcp_bridge.getObject(command.id)
     elseif command.command == "run_lua" then
         return mcp_bridge.runLua(command.code)
+    elseif command.command == "add_object" then
+        return mcp_bridge.addObject(command.type, command.properties)
+    elseif command.command == "remove_object" then
+        return mcp_bridge.removeObject(command.id)
+    elseif command.command == "modify_object" then
+        return mcp_bridge.modifyObject(command.id, command.properties)
+    elseif command.command == "get_game_state" then
+        return mcp_bridge.getGameState()
+    elseif command.command == "pause_game" then
+        return mcp_bridge.pauseGame(command.paused)
+    elseif command.command == "get_performance_stats" then
+        return mcp_bridge.getPerformanceStats()
+    elseif command.command == "set_debug_text" then
+        return mcp_bridge.setDebugText(command.text, command.x, command.y, command.color)
+    elseif command.command == "capture_screenshot" then
+        return mcp_bridge.captureScreenshot()
     else
         return json.encode({error = "Unknown command: " .. tostring(command.command)})
     end
@@ -107,6 +159,200 @@ function mcp_bridge.getObject(id)
     return json.encode({object = obj})
 end
 
+-- Add a new object to the game
+function mcp_bridge.addObject(objType, properties)
+    if objectAdder then
+        local ok, obj = pcall(objectAdder, objType, properties or {})
+        if ok then
+            return json.encode({object = obj, success = true})
+        else
+            return json.encode({error = "Failed to create object: " .. tostring(obj)})
+        end
+    end
+    return json.encode({error = "No object adder configured. Register one via run_lua: mcp_bridge.setObjectAdder(function(objType, properties) ... end)"})
+end
+
+-- Remove an object from the game
+function mcp_bridge.removeObject(id)
+    if objectRemover then
+        local ok, result = pcall(objectRemover, id)
+        if ok then
+            return json.encode({success = true, removed = result ~= false})
+        else
+            return json.encode({success = false, error = tostring(result)})
+        end
+    end
+    -- Default: use object getter and remove directly from the table
+    if not objectGetter then
+        return json.encode({error = "No object getter configured"})
+    end
+    local objects = objectGetter()
+    if objects[id] then
+        objects[id] = nil
+        return json.encode({success = true})
+    end
+    return json.encode({error = "Object not found: " .. tostring(id)})
+end
+
+-- Modify an existing object's properties
+function mcp_bridge.modifyObject(id, properties)
+    if not properties then
+        return json.encode({error = "No properties provided"})
+    end
+
+    if objectModifier then
+        local ok, obj = pcall(objectModifier, id, properties)
+        if ok then
+            return json.encode({object = obj, success = true})
+        else
+            return json.encode({error = "Failed to modify object: " .. tostring(obj)})
+        end
+    end
+
+    -- Default: use object getter and modify in place
+    if not objectGetter then
+        return json.encode({error = "No object getter configured"})
+    end
+    local objects = objectGetter()
+    local obj = objects[id]
+    if not obj then
+        return json.encode({error = "Object not found: " .. tostring(id)})
+    end
+    for k, v in pairs(properties) do
+        obj[k] = v
+    end
+    return json.encode({object = obj, success = true})
+end
+
+-- Get comprehensive game state
+function mcp_bridge.getGameState()
+    if gameStateGetter then
+        local ok, state = pcall(gameStateGetter)
+        if ok then
+            return json.encode(state)
+        else
+            return json.encode({error = "State getter failed: " .. tostring(state)})
+        end
+    end
+
+    -- Default: build state from available data
+    local state = {
+        window = {},
+        fps = 0,
+        objectCount = 0,
+        objects = {},
+        version = {},
+    }
+
+    if love and love.graphics then
+        state.window.width = love.graphics.getWidth()
+        state.window.height = love.graphics.getHeight()
+    end
+    if love and love.timer then
+        state.fps = love.timer.getFPS()
+    end
+    if love and love.getVersion then
+        local major, minor, revision = love.getVersion()
+        state.version = {major = major, minor = minor, revision = revision}
+    end
+    if objectGetter then
+        local objects = objectGetter()
+        for id, obj in pairs(objects) do
+            state.objectCount = state.objectCount + 1
+            table.insert(state.objects, {
+                id = id,
+                type = obj.type,
+                x = obj.x,
+                y = obj.y
+            })
+        end
+    end
+
+    return json.encode(state)
+end
+
+-- Pause or unpause the game
+function mcp_bridge.pauseGame(paused)
+    if pauseSetter then
+        local ok, err = pcall(pauseSetter, paused)
+        if ok then
+            return json.encode({success = true, paused = paused})
+        else
+            return json.encode({error = "Pause setter failed: " .. tostring(err)})
+        end
+    end
+    return json.encode({error = "No pause setter configured. Register one via run_lua: mcp_bridge.setPauseSetter(function(paused) ... end)"})
+end
+
+-- Get performance statistics
+function mcp_bridge.getPerformanceStats()
+    local stats = {
+        fps = 0,
+        objectCount = 0,
+        deltaTime = 0,
+    }
+
+    if love and love.timer then
+        stats.fps = love.timer.getFPS()
+        stats.deltaTime = love.timer.getDelta()
+        stats.time = love.timer.getTime()
+    end
+    if love and love.graphics then
+        stats.width = love.graphics.getWidth()
+        stats.height = love.graphics.getHeight()
+    end
+    if objectGetter then
+        local objects = objectGetter()
+        for _ in pairs(objects) do
+            stats.objectCount = stats.objectCount + 1
+        end
+    end
+
+    return json.encode(stats)
+end
+
+-- Display debug text overlay in the game
+function mcp_bridge.setDebugText(text, x, y, color)
+    if debugTextSetter then
+        local ok, err = pcall(debugTextSetter, text, x, y, color)
+        if ok then
+            return json.encode({success = true})
+        else
+            return json.encode({error = "Debug text setter failed: " .. tostring(err)})
+        end
+    end
+    return json.encode({error = "No debug text setter configured. Register one via run_lua: mcp_bridge.setDebugTextSetter(function(text, x, y, color) ... end)"})
+end
+
+-- Capture a screenshot of the current frame
+function mcp_bridge.captureScreenshot()
+    if not (love and love.graphics and love.graphics.newScreenshot) then
+        return json.encode({error = "Screenshots not supported in this LÖVE2D version"})
+    end
+
+    local ok, result = pcall(function()
+        local imageData = love.graphics.newScreenshot()
+        local encoded = love.image.newEncodedData(imageData, "png")
+        local bytes = encoded:getString()
+        local filename = "love2d_mcp_screenshot.png"
+        love.filesystem.write(filename, bytes)
+        local saveDir = love.filesystem.getSaveDirectory()
+        return {
+            success = true,
+            file = saveDir .. "/" .. filename,
+            filename = filename,
+            width = imageData:getWidth(),
+            height = imageData:getHeight()
+        }
+    end)
+
+    if ok then
+        return json.encode(result)
+    else
+        return json.encode({error = "Screenshot failed: " .. tostring(result)})
+    end
+end
+
 -- Run arbitrary Lua code with access to game objects
 function mcp_bridge.runLua(code)
     local func, err = loadstring(code)
@@ -114,10 +360,12 @@ function mcp_bridge.runLua(code)
         return json.encode({error = "Syntax error: " .. tostring(err)})
     end
 
-    -- Set up environment with access to objects
+    -- Set up environment with access to objects, love, and the bridge itself
     local env = {
         objects = objectGetter and objectGetter() or {},
         love = love,
+        mcp_bridge = mcp_bridge,
+        package = package,
         print = print,
         pairs = pairs,
         ipairs = ipairs,
@@ -127,6 +375,7 @@ function mcp_bridge.runLua(code)
         table = table,
         math = math,
         string = string,
+        _G = _G,
     }
     setfenv(func, env)
 
