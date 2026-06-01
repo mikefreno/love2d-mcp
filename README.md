@@ -16,7 +16,7 @@ This project bridges LÖVE2D games with MCP-compatible AI assistants, enabling:
 ```
 ┌─────────────┐ stdio  ┌─────────────┐  TCP   ┌─────────────┐
 │  MCP Client │◄──────►│  MCP Server │◄──────►│  LÖVE2D     │
-│   (Pi/Inspector) │        │ (TypeScript)│        │  Game (Lua) │
+│   (Pi)      │        │ (TypeScript)│        │  Game (Lua) │
 └─────────────┘        └─────────────┘        └─────────────┘
 ```
 
